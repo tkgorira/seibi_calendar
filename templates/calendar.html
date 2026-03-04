@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>整備工場予約カレンダー</title>
+
+  <!-- viewport（基本） -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+  <!-- Bootstrap -->
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- FullCalendar -->
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/main.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.5/locales/ja.min.js"></script>
+
+  <!-- カレンダーのサイズ調整 ＋ 色分けCSS -->
+  <style>
+    html, body {
+      height: 100%;
+    }
+    body {
+      padding: 20px;
+    }
+    /* PC版：横いっぱいに広げる */
+    #calendar {
+      max-width: 100%;
+      width: 100%;
+      margin: 20px auto 0 auto;
+      height: 80vh;
+    }
+
+    /* 全画面モード用：背景は白、カレンダーを最大化、文字サイズ少し拡大 */
+    body.fullscreen-mode {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      overflow: hidden;
+    }
+    body.fullscreen-mode #calendar {
+      max-width: none;
+      margin: 0;
+      height: 100vh;
+      width: 100vw;          /* 右側の余白を消す */
+    }
+    body.fullscreen-mode .fc {
+      font-size: 1.3rem;
+    }
+    body.fullscreen-mode .fc-my-event-text,
+    body.fullscreen-mode .fc-daygrid-event {
+      font-size: 1.4rem;
+      line-height: 1.2;
+    }
+
+    /* フルスクリーン中だけ日付を反転色にする */
+    body.fullscreen-mode .fc-daygrid-day-number {
+      background-color: #000;
+      color: #fff;
+      padding: 2px 4px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
+    /* ブラウザのフルスクリーン背景が黒くならないようにする */
+    :fullscreen::backdrop,
+    :-webkit-full-screen::backdrop {
+      background-color: #fff !important;
+    }
+    body.fullscreen-mode,
+    body.fullscreen-mode #calendar {
+      background-color: #fff !important;
+    }
+
+    /* ヘッダー右上のリンクボタン */
+    .top-right-links {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+
+    /* 整備内容ごとの色分け */
+    .svc-syaken {
+      background-color: #cfe2ff !important;
+      border-color: #9ec5fe !important;
+    }
+    .svc-12h {
+      background-color: #d1e7dd !important;
+      border-color: #95d5b2 !important;
+    }
+    .svc-schedule {
+      background-color: #d2f4ea !important;
+      border-color: #80e1c5 !important;
+    }
+    .svc-bankin {
+      background-color: #fff3cd !important;
+      border-color: #ffe69c !important;
+    }
+    .svc-oil {
+      background-color: #ffe5d0 !important;
+      border-color: #ffb78a !important;
+    }
+    .svc-tire {
+      background-color: #e5d5ff !important;
+      border-color: #c29ffa !important;
+    }
+    .svc-used {
+      background-color: #cff4fc !important;
+      border-color: #9eeaf9 !important;
+    }
+    .svc-newcar {
+      background-color: #f8d7e8 !important;
+      border-color: #f1a6cf !important;
+    }
+    .svc-elec {
+      background-color: #e2e3e5 !important;
+      border-color: #bcbec0 !important;
+    }
+    .svc-others {
+      background-color: #e9ecef !important;
+      border-color: #ced4da !important;
+    }
+
+    .fc-event,
+    .fc-daygrid-event {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #000 !important;
+    }
+
+    .fc-my-event-text {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #000;
+      line-height: 1.35;
+    }
+
+    .fc-daygrid-day-events {
+      margin-top: 2px;
+    }
+
+    .day-off-top {
+      position: absolute;
+      left: 2px;
+      top: 2px;
+      font-size: 0.8rem;
+      color: #dc3545;
+      z-index: 5;
+    }
+
+    .attmode-on {
+      background-color: #dc3545 !important;
+      color: #fff !important;
+    }
+
+    /* スマホ版（幅 768px 未満）の文字サイズなど */
+    @media (max-width: 767.98px) {
+      body {
+        padding: 5px;
+      }
+
+      #calendar {
+        max-width: 100%;
+        height: 90vh;
+        margin: 5px auto;
+      }
+
+      .fc .fc-toolbar.fc-header-toolbar {
+        display: block;
+        text-align: center;
+        font-size: 60%;
+      }
+      .fc-header-toolbar .fc-toolbar-chunk {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .fc-daygrid-event,
+      .fc-my-event-text {
+        font-size: 0.50rem;
+      }
+
+      .fc-daygrid-day-number {
+        font-size: 0.6rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 右上に画像共有 ＋ カメラ ＋ 音量モニタへのリンク -->
+  <div class="top-right-links">
+    <a href="/images" class="btn btn-outline-primary btn-sm me-2">画像共有へ</a>
+    <a href="/camera" class="btn btn-outline-danger btn-sm me-2">入口カメラ</a>
+    <a href="/sound" class="btn btn-outline-success btn-sm">音量モニタ</a>
+  </div>
+
+  <h3 class="mb-3 d-flex align-items-center">
+    整備工場予約カレンダー
+    <button id="fullscreenToggle" class="btn btn-sm btn-outline-secondary ms-3">
+      全画面
+    </button>
+  </h3>
+
+  <div id="calendar"></div>
+
+  <!-- 新規予約モーダル -->
+  <div class="modal fade" id="reserveModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">新規予約</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p id="reserveOffInfo" class="text-danger small mb-2"></p>
+
+          <form id="reserveForm">
+            <input type="hidden" id="reserveDate">
+
+            <div class="mb-2">
+              <label class="form-label">入庫予定時間</label>
+              <input type="time" class="form-control" id="reserveTime" required>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">お客様名</label>
+              <input type="text" class="form-control" id="reserveCustomer">
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">車種</label>
+              <input type="text" class="form-control" id="reserveCarModel">
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">予定内容（タイトル）</label>
+              <select class="form-select" id="reserveTitle" required>
+                <option value="">選択してください</option>
+                <option value="車検">車検</option>
+                <option value="12ヶ月点検">12ヶ月点検</option>
+                <option value="スケジュール点検">スケジュール点検</option>
+                <option value="板金">板金</option>
+                <option value="オイル交換">オイル交換</option>
+                <option value="タイヤ交換">タイヤ交換</option>
+                <option value="中古車納車点検">中古車納車点検</option>
+                <option value="新車点検">新車点検</option>
+                <option value="電装品取付">電装品取付</option>
+                <option value="その他">その他</option>
+              </select>
+            </div>
+
+            <!-- 納車区分 → 引き取り方法 / 納車方法 -->
+            <div class="mb-2">
+              <label class="form-label">引き取り方法</label>
+              <select class="form-select" id="reservePickupMethod">
+                <option value="">未選択</option>
+                <option value="来店">来店</option>
+                <option value="引き取り">引き取り</option>
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">納車方法</label>
+              <select class="form-select" id="reserveDeliveryMethod">
+                <option value="">未選択</option>
+                <option value="来店">来店</option>
+                <option value="納車">納車</option>
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">希望整備士</label>
+              <select class="form-select" id="reserveMechanic">
+                {% for m in mechanics %}
+                  <option value="{{ m }}">{{ m }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">予約内容 詳細</label>
+              <textarea class="form-control" id="reserveContent" rows="3"></textarea>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">入力者</label>
+              <select class="form-select" id="reserveCreatedBy" required>
+                <option value="">選択してください</option>
+                <option value="社長">社長</option>
+                <option value="大山">大山</option>
+                <option value="駒島">駒島</option>
+                <option value="崇文">崇文</option>
+              </select>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+          <button class="btn btn-primary" id="reserveSubmit">登録</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 編集モーダル -->
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">予約の編集 / 削除</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p id="editOffInfo" class="text-danger small mb-2"></p>
+
+          <form id="editForm">
+            <input type="hidden" id="editId">
+            <input type="hidden" id="editDate">
+
+            <div class="mb-2">
+              <label class="form-label">入庫日</label>
+              <input type="date" class="form-control" id="editDateInput" required>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">入庫予定時間</label>
+              <input type="time" class="form-control" id="editTime" required>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">お客様名</label>
+              <input type="text" class="form-control" id="editCustomer">
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">車種</label>
+              <input type="text" class="form-control" id="editCarModel">
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">予定内容（タイトル）</label>
+              <select class="form-select" id="editTitle" required>
+                <option value="">選択してください</option>
+                <option value="車検">車検</option>
+                <option value="12ヶ月点検">12ヶ月点検</option>
+                <option value="スケジュール点検">スケジュール点検</option>
+                <option value="板金">板金</option>
+                <option value="オイル交換">オイル交換</option>
+                <option value="タイヤ交換">タイヤ交換</option>
+                <option value="中古車納車点検">中古車納車点検</option>
+                <option value="新車点検">新車点検</option>
+                <option value="電装品取付">電装品取付</option>
+                <option value="その他">その他</option>
+              </select>
+            </div>
+
+            <!-- 納車区分 → 引き取り方法 / 納車方法 -->
+            <div class="mb-2">
+              <label class="form-label">引き取り方法</label>
+              <select class="form-select" id="editPickupMethod">
+                <option value="">未選択</option>
+                <option value="来店">来店</option>
+                <option value="引き取り">引き取り</option>
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">納車方法</label>
+              <select class="form-select" id="editDeliveryMethod">
+                <option value="">未選択</option>
+                <option value="来店">来店</option>
+                <option value="納車">納車</option>
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">希望整備士</label>
+              <select class="form-select" id="editMechanic">
+                {% for m in mechanics %}
+                  <option value="{{ m }}">{{ m }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">予約内容 詳細</label>
+              <textarea class="form-control" id="editContent" rows="3"></textarea>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">入力者</label>
+              <select class="form-select" id="editCreatedBy" required>
+                <option value="">選択してください</option>
+                <option value="社長">社長</option>
+                <option value="大山">大山</option>
+                <option value="駒島">駒島</option>
+                <option value="崇文">崇文</option>
+              </select>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-danger" id="editDelete">削除</button>
+          <button class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+          <button class="btn btn-primary" id="editSave">更新</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 勤怠入力モーダル（ここは元のまま） -->
+  <div class="modal fade" id="offModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">勤怠入力（休み登録）</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p id="offModalDate" class="mb-2"></p>
+          <input type="hidden" id="offDate">
+
+          <div class="row">
+            <div class="col-6">
+              <div class="form-check">
+                <input class="form-check-input off-check" type="checkbox" id="off-shimi" value="清">
+                <label class="form-check-label" for="off-shimi">清水</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input off-check" type="checkbox" id="off-ido" value="井">
+                <label class="form-check-label" for="off-ido">井戸</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input off-check" type="checkbox" id="off-taka" value="高">
+                <label class="form-check-label" for="off-taka">高岸</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input off-check" type="checkbox" id="off-kai" value="貝">
+                <label class="form-check-label" for="off-kai">貝川</label>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="form-check">
+                <input class="form-check-input off-check" type="checkbox" id="off-shacho" value="社">
+                <label class="form-check-label" for="off-shacho">社長</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input off-check" type="checkbox" id="off-koma" value="駒">
+                <label class="form-check-label" for="off-koma">駒島</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input off-check" type="checkbox" id="off-oyama" value="大">
+                <label class="form-check-label" for="off-oyama">大山</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input off-check" type="checkbox" id="off-sot" value="崇">
+                <label class="form-check-label" for="off-sot">崇文</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input off-check" type="checkbox" id="off-sugi" value="杉">
+                <label class="form-check-label" for="off-sugi">大杉</label>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+          <button class="btn btn-primary" id="offSave">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const calendarEl = document.getElementById("calendar");
+
+  const ua = navigator.userAgent.toLowerCase();
+  const isSmartphoneUA =
+    ua.includes("iphone") ||
+    (ua.includes("android") && ua.includes("mobile"));
+  const isNarrow = window.innerWidth < 900;
+  const isMobile = isSmartphoneUA || isNarrow;
+
+  // viewport を書き換える関数
+  function setViewport(content) {
+    let vp = document.querySelector('meta[name="viewport"]');
+    if (!vp) {
+      vp = document.createElement('meta');
+      vp.name = 'viewport';
+      document.head.appendChild(vp);
+    }
+    vp.setAttribute('content', content);
+  }
+
+  // ピンチ・スクロール検知用
+  let isTouchZoomOrScroll = false;
+  let touchStartDistance = null;
+  let touchStartY = null;
+  let lastPinchTime = 0;
+
+  document.addEventListener("touchstart", function (e) {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchStartDistance = Math.sqrt(dx * dx + dy * dy);
+      isTouchZoomOrScroll = false;
+    } else if (e.touches.length === 1) {
+      touchStartY = e.touches[0].clientY;
+      isTouchZoomOrScroll = false;
+    }
+  }, { passive: true });
+
+  document.addEventListener("touchmove", function (e) {
+    if (e.touches.length === 2 && touchStartDistance !== null) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (Math.abs(dist - touchStartDistance) > 10) {
+        isTouchZoomOrScroll = true;
+        lastPinchTime = Date.now();
+      }
+    }
+    if (e.touches.length === 1 && touchStartY !== null) {
+      const dy = Math.abs(e.touches[0].clientY - touchStartY);
+      if (dy > 10) {
+        isTouchZoomOrScroll = true;
+      }
+    }
+  }, { passive: true });
+
+  document.addEventListener("touchend", function () {
+    touchStartDistance = null;
+    touchStartY = null;
+  }, { passive: true });
+
+  let attMode = false;
+  let attBtnEl = null;
+
+  const reserveModalEl = document.getElementById("reserveModal");
+  const reserveModal = new bootstrap.Modal(reserveModalEl);
+
+  const editModalEl = document.getElementById("editModal");
+  const editModal = new bootstrap.Modal(editModalEl);
+
+  const offModalEl = document.getElementById("offModal");
+  const offModal = new bootstrap.Modal(offModalEl);
+
+  // モーダルが完全に閉じられたら viewport を元に戻す
+  reserveModalEl.addEventListener("hidden.bs.modal", function () {
+    setViewport("width=device-width, initial-scale=1.0, user-scalable=yes");
+  });
+  editModalEl.addEventListener("hidden.bs.modal", function () {
+    setViewport("width=device-width, initial-scale=1.0, user-scalable=yes");
+  });
+
+  // フルスクリーン関連：#calendar を対象にする
+  const fsButton = document.getElementById("fullscreenToggle");
+  const fsTarget = calendarEl;
+
+  function enterFullscreen() {
+    if (!document.fullscreenElement) {
+      if (fsTarget.requestFullscreen) {
+        fsTarget.requestFullscreen();
+      } else if (fsTarget.webkitRequestFullscreen) {
+        fsTarget.webkitRequestFullscreen();
+      } else if (fsTarget.msRequestFullscreen) {
+        fsTarget.msRequestFullscreen();
+      }
+      document.body.classList.add("fullscreen-mode");
+    }
+  }
+
+  function exitFullscreen() {
+    if (document.fullscreenElement) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+    }
+    document.body.classList.remove("fullscreen-mode");
+  }
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      exitFullscreen();
+    } else {
+      enterFullscreen();
+    }
+  }
+
+  if (fsButton) {
+    fsButton.addEventListener("click", toggleFullscreen);
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && document.fullscreenElement) {
+      exitFullscreen();
+    }
+  });
+
+  document.addEventListener("fullscreenchange", function () {
+    if (!document.fullscreenElement) {
+      document.body.classList.remove("fullscreen-mode");
+    }
+  });
+
+  // 予約モーダルを開く共通関数
+  async function openReserveModal(clicked) {
+    const y = clicked.getFullYear();
+    const m2 = String(clicked.getMonth() + 1).padStart(2, "0");
+    const d2 = String(clicked.getDate()).padStart(2, "0");
+    const dateStr2 = `${y}-${m2}-${d2}`;
+
+    const hh = String(clicked.getHours()).padStart(2, "0");
+    const mm = String(clicked.getMinutes()).padStart(2, "0");
+    const timeStr = `${hh}:${mm}`;
+
+    document.getElementById("reserveDate").value = dateStr2;
+    document.getElementById("reserveTime").value = timeStr;
+    document.getElementById("reserveTitle").value = "";
+    document.getElementById("reserveMechanic").value = "";
+    document.getElementById("reserveContent").value = "";
+    document.getElementById("reserveCustomer").value = "";
+    document.getElementById("reserveCarModel").value = "";
+    document.getElementById("reservePickupMethod").value = "";
+    document.getElementById("reserveDeliveryMethod").value = "";
+    document.getElementById("reserveCreatedBy").value = "";
+    document.getElementById("reserveOffInfo").textContent = "";
+
+    try {
+      const resOff = await fetch(`/api/off_days?date=${dateStr2}`);
+      if (resOff.ok) {
+        const offs = await resOff.json();
+        document.getElementById("reserveOffInfo").textContent =
+          offs.length > 0 ? "この日の休み：" + offs.join(" ") : "この日の休み：なし";
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    // フォーム表示中はピンチズームを固定
+    setViewport("width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no");
+
+    reserveModal.show();
+  }
+
+  const calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: isMobile ? "dayGridMonth" : "timeGridWeek",
+    locale: "ja",
+    slotMinTime: "08:00:00",
+    slotMaxTime: "19:00:00",
+    nowIndicator: true,
+    selectable: true,
+
+    headerToolbar: isMobile
+      ? {
+          left: 'prev,next today',
+          center: 'title',
+          right: 'dayGridMonth,timeGridDay,attModeBtn'
+        }
+      : {
+          left: 'prev,next today',
+          center: 'title',
+          right: 'dayGridMonth,timeGridWeek,timeGridDay,attModeBtn'
+        },
+
+    customButtons: {
+      attModeBtn: {
+        text: '勤怠入力',
+        click: function () {
+          attMode = !attMode;
+          if (!attBtnEl) {
+            attBtnEl = document.querySelector('.fc-attModeBtn-button');
+          }
+          if (attBtnEl) {
+            if (attMode) attBtnEl.classList.add('attmode-on');
+            else attBtnEl.classList.remove('attmode-on');
+          }
+          alert(attMode ? '勤怠入力モード ON' : '勤怠入力モード OFF');
+        }
+      }
+    },
+
+    events: "/api/events",
+
+    // お客様名に自動で「様」を付け、車種を表示
+    eventContent: function(info) {
+      const title = info.event.title || "";
+      const customerRaw = info.event.extendedProps.customer_name || "";
+      const carModel = info.event.extendedProps.car_model || "";
+
+      const customer = customerRaw
+        ? (customerRaw.endsWith("様") ? customerRaw : customerRaw + "様")
+        : "";
+
+      let text = "";
+      if (customer) text += customer + " ";
+      if (carModel) text += carModel + " ";
+      text += title;
+
+      return { html: '<div class="fc-my-event-text">' + text + '</div>' };
+    },
+
+    dayCellDidMount: async function(info) {
+      if (info.view.type !== 'dayGridMonth') return;
+
+      const d = info.date;
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const dateStr = `${y}-${m}-${day}`;
+
+      try {
+        const res = await fetch(`/api/off_days?date=${dateStr}`);
+        if (!res.ok) return;
+        const offs = await res.json();
+        if (!offs || offs.length === 0) return;
+
+        info.el.style.position = 'relative';
+
+        const topDiv = document.createElement('div');
+        topDiv.classList.add('day-off-top');
+        topDiv.textContent = offs.join('');
+        info.el.appendChild(topDiv);
+      } catch (e) {
+        console.error(e);
+      }
+    },
+
+    eventClassNames: function(arg) {
+      const t = arg.event.extendedProps.serviceType || arg.event.title || "";
+      if (t.includes("車検")) return ["svc-syaken"];
+      if (t.includes("12ヶ月点検")) return ["svc-12h"];
+      if (t.includes("スケジュール点検")) return ["svc-schedule"];
+      if (t.includes("板金")) return ["svc-bankin"];
+      if (t.includes("オイル交換")) return ["svc-oil"];
+      if (t.includes("タイヤ交換")) return ["svc-tire"];
+      if (t.includes("中古車納車点検")) return ["svc-used"];
+      if (t.includes("新車点検")) return ["svc-newcar"];
+      if (t.includes("電装品取付")) return ["svc-elec"];
+      return ["svc-others"];
+    },
+
+    dateClick: async function(info) {
+      const now = Date.now();
+      const viewType = calendar.view.type;
+
+      // ピンチ直後1.5秒は（月ビュー時のみ）タップ無効
+      if (viewType === "dayGridMonth" && now - lastPinchTime < 1500) {
+        return;
+      }
+
+      if (isTouchZoomOrScroll) {
+        isTouchZoomOrScroll = false;
+        return;
+      }
+
+      const clicked = info.date;
+
+      // 月ビュー ＋ 勤怠モード ON → 勤怠モーダル
+      if (viewType === "dayGridMonth" && attMode) {
+        const y = clicked.getFullYear();
+        const m = String(clicked.getMonth() + 1).padStart(2, "0");
+        const d = String(clicked.getDate()).padStart(2, "0");
+        const dateStr = `${y}-${m}-${d}`;
+
+        document.getElementById("offDate").value = dateStr;
+        document.getElementById("offModalDate").textContent = dateStr + " の休み";
+
+        document.querySelectorAll(".off-check").forEach(ch => ch.checked = false);
+
+        try {
+          const res = await fetch(`/api/off_days?date=${dateStr}`);
+          if (res.ok) {
+            const offs = await res.json();
+            document.querySelectorAll(".off-check").forEach(ch => {
+              if (offs.includes(ch.value)) ch.checked = true;
+            });
+          }
+        } catch (e) {
+          console.error(e);
+        }
+
+        offModal.show();
+        return;
+      }
+
+      // 月ビュー or 週ビュー → 日ビュー
+      if (viewType === "dayGridMonth" || viewType === "timeGridWeek") {
+        const currentDate = calendar.getDate();
+        history.pushState(
+          { view: viewType, date: currentDate.toISOString() },
+          ""
+        );
+        calendar.changeView("timeGridDay", clicked);
+
+        // スマホ時は、日ビューに切り替えてから予約モーダルを自動表示
+        if (isMobile) {
+          setTimeout(() => {
+            openReserveModal(clicked);
+          }, 200);
+        }
+        return;
+      }
+
+      // 週/日ビュー → 予約入力モーダル
+      openReserveModal(clicked);
+    },
+
+    eventClick: async function(info) {
+      const ev = info.event;
+      const id = ev.id;
+      const start = new Date(ev.start);
+
+      const y = start.getFullYear();
+      const m = String(start.getMonth() + 1).padStart(2, "0");
+      const d = String(start.getDate()).padStart(2, "0");
+      const dateStr = `${y}-${m}-${d}`;
+
+      const hh = String(start.getHours()).padStart(2, "0");
+      const mm = String(start.getMinutes()).padStart(2, "0");
+      const timeStr = `${hh}:${mm}`;
+
+      document.getElementById("editId").value = id;
+      document.getElementById("editDate").value = dateStr;
+      document.getElementById("editDateInput").value = dateStr;
+      document.getElementById("editTime").value = timeStr;
+      document.getElementById("editTitle").value = ev.title;
+      document.getElementById("editMechanic").value = ev.extendedProps.mechanic || "";
+      document.getElementById("editContent").value = ev.extendedProps.content || "";
+      document.getElementById("editCustomer").value = ev.extendedProps.customer_name || "";
+      document.getElementById("editCarModel").value = ev.extendedProps.car_model || "";
+      document.getElementById("editPickupMethod").value = ev.extendedProps.pickup_method || "";
+      document.getElementById("editDeliveryMethod").value = ev.extendedProps.delivery_method || "";
+      document.getElementById("editCreatedBy").value = ev.extendedProps.created_by || "";
+      document.getElementById("editOffInfo").textContent = "";
+
+      try {
+        const resOff = await fetch(`/api/off_days?date=${dateStr}`);
+        if (resOff.ok) {
+          const offs = await resOff.json();
+          document.getElementById("editOffInfo").textContent =
+            offs.length > 0 ? "この日の休み：" + offs.join(" ") : "この日の休み：なし";
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
+      // 編集モーダル中もズーム固定
+      setViewport("width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no");
+
+      editModal.show();
+    }
+  });
+
+  calendar.render();
+
+  (function initHistoryState() {
+    const initialDate = calendar.getDate();
+    history.replaceState(
+      { view: calendar.view.type, date: initialDate.toISOString() },
+      ""
+    );
+  })();
+
+  window.addEventListener("popstate", function (e) {
+    if (!e.state) return;
+    const view = e.state.view || "dayGridMonth";
+    const date = e.state.date ? new Date(e.state.date) : calendar.getDate();
+    calendar.changeView(view, date);
+  });
+
+  document.getElementById("reserveSubmit").addEventListener("click", async function () {
+    const date = document.getElementById("reserveDate").value;
+    const time = document.getElementById("reserveTime").value;
+    const title = document.getElementById("reserveTitle").value;
+    const mechanic = document.getElementById("reserveMechanic").value;
+    const content = document.getElementById("reserveContent").value;
+    const customer = document.getElementById("reserveCustomer").value;
+    const carModel = document.getElementById("reserveCarModel").value;
+    const pickupMethod   = document.getElementById("reservePickupMethod").value;
+    const deliveryMethod = document.getElementById("reserveDeliveryMethod").value;
+    const createdBy = document.getElementById("reserveCreatedBy").value;
+
+    if (!time || !title || !createdBy) {
+      alert("時間・予定内容・入力者は必須です");
+      return;
+    }
+
+    const start = `${date}T${time}:00`;
+
+    const res = await fetch("/api/events", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        start: start,
+        end: null,
+        title: title,
+        mechanic: mechanic,
+        content: content,
+        customer_name: customer,
+        car_model: carModel,
+        pickup_method: pickupMethod,
+        delivery_method: deliveryMethod,
+        created_by: createdBy
+      }),
+    });
+
+    if (res.ok) {
+      reserveModal.hide();
+      calendar.refetchEvents();
+    } else {
+      alert("登録に失敗しました");
+    }
+  });
+
+  document.getElementById("editSave").addEventListener("click", async function () {
+    const id = document.getElementById("editId").value;
+    const dateInput = document.getElementById("editDateInput").value;
+    const time = document.getElementById("editTime").value;
+    const title = document.getElementById("editTitle").value;
+    const mechanic = document.getElementById("editMechanic").value;
+    const content = document.getElementById("editContent").value;
+    const customer = document.getElementById("editCustomer").value;
+    const carModel = document.getElementById("editCarModel").value;
+    const pickupMethod   = document.getElementById("editPickupMethod").value;
+    const deliveryMethod = document.getElementById("editDeliveryMethod").value;
+    const createdBy = document.getElementById("editCreatedBy").value;
+
+    if (!dateInput || !time || !title || !createdBy) {
+      alert("日付・時間・予定内容・入力者は必須です");
+      return;
+    }
+
+    const start = `${dateInput}T${time}:00`;
+
+    const res = await fetch(`/api/events/${id}`, {
+      method: "PUT",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        start: start,
+        end: null,
+        title: title,
+        mechanic: mechanic,
+        content: content,
+        customer_name: customer,
+        car_model: carModel,
+        pickup_method: pickupMethod,
+        delivery_method: deliveryMethod,
+        created_by: createdBy
+      }),
+    });
+
+    if (res.ok) {
+      editModal.hide();
+      calendar.refetchEvents();
+    } else {
+      alert("更新に失敗しました");
+    }
+  });
+
+  document.getElementById("editDelete").addEventListener("click", async function () {
+    if (!confirm("この予約を削除しますか？")) return;
+
+    const id = document.getElementById("editId").value;
+
+    const res = await fetch(`/api/events/${id}`, { method: "DELETE" });
+
+    if (res.ok) {
+      editModal.hide();
+      calendar.refetchEvents();
+    } else {
+      alert("削除に失敗しました");
+    }
+  });
+
+  document.getElementById("offSave").addEventListener("click", async function () {
+    const date = document.getElementById("offDate").value;
+    const checks = document.querySelectorAll(".off-check");
+    const mechanics = [];
+    checks.forEach(ch => { if (ch.checked) mechanics.push(ch.value); });
+
+    try {
+      const res = await fetch("/api/off_days", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ date: date, mechanics: mechanics })
+      });
+      if (!res.ok) {
+        alert("勤怠の保存に失敗しました");
+        return;
+      }
+      offModal.hide();
+      const currentViewDate = calendar.getDate();
+      calendar.changeView("dayGridMonth", currentViewDate);
+    } catch (e) {
+      console.error(e);
+      alert("勤怠の保存中にエラーが発生しました");
+    }
+  });
+
+});
+</script>
+
+</body>
+</html>

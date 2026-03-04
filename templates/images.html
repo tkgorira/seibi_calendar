@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>画像共有</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, sans-serif;
+    }
+    body { padding: 16px; }
+    h1 { margin-top: 0; }
+
+    .folder-list { margin-bottom: 8px; }
+    .folder-list a {
+      margin-right: 8px;
+      text-decoration: none;
+      color: #0d6efd;
+    }
+    .folder-current {
+      margin-right: 8px;
+      font-weight: bold;
+      text-decoration: underline;
+    }
+
+    .forms-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .item {
+      width: 220px;
+      text-align: center;
+      font-size: 12px;
+      word-break: break-all;
+      border: 1px solid #eee;
+      padding: 4px;
+    }
+    .item img {
+      max-width: 100%;
+      max-height: 180px;
+      object-fit: cover;
+      border: 1px solid #ccc;
+    }
+    .item form {
+      margin-top: 4px;
+    }
+    .item button {
+      font-size: 11px;
+      padding: 2px 6px;
+    }
+
+    /* フルスクリーン時の背景＆スクロール抑止 */
+    :fullscreen,
+    :-webkit-full-screen {
+      background: #000;
+      overflow: hidden;
+    }
+
+    /* 通常時のスライドコンテナ */
+    #slideshow-container {
+      margin-top: 12px;
+      border: 1px solid #ccc;
+      padding: 4px;
+      max-width: 800px;
+    }
+
+    /* フルスクリーン時のスライドコンテナ */
+    :fullscreen #slideshow-container,
+    :-webkit-full-screen #slideshow-container {
+      position: fixed;
+      inset: 0;
+      margin: 0;
+      padding: 0;
+      border: none;
+      max-width: none;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      overflow: hidden;
+    }
+
+    /* 通常時のスライド画像 */
+    #slideshow-image {
+      max-width: 100%;
+      max-height: 70vh;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* フルスクリーン時のスライド画像 */
+    :fullscreen #slideshow-image,
+    :-webkit-full-screen #slideshow-image {
+      max-width: 100vw;
+      max-height: 100vh;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      background: #000;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h1>画像共有（閲覧・アップロード）</h1>
+
+  <p><a href="/">カレンダーへ戻る</a></p>
+
+  <!-- フォルダ切り替え -->
+  <div class="folder-list">
+    <span>フォルダ:</span>
+    {% if not current_dir %}
+      <span class="folder-current">ルート</span>
+    {% else %}
+      <a href="{{ url_for('images') }}">ルート</a>
+    {% endif %}
+
+    {% for folder in folders %}
+      {% if folder == current_dir %}
+        <span class="folder-current">{{ folder }}</span>
+      {% else %}
+        <a href="{{ url_for('images', dir=folder) }}">{{ folder }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <!-- アップロード & フォルダ作成フォーム -->
+  <div class="forms-row">
+    <!-- 画像アップロード（現在フォルダ） -->
+    <form action="{{ url_for('images', dir=current_dir) }}" method="post" enctype="multipart/form-data">
+      <input type="file" name="file" accept="image/*">
+      <button type="submit">アップロード</button>
+    </form>
+
+    <!-- 新規フォルダ作成（ルート直下に作成） -->
+    <form action="{{ url_for('images') }}" method="post">
+      <input type="text" name="new_folder" placeholder="新規フォルダ名">
+      <button type="submit">フォルダ作成</button>
+    </form>
+  </div>
+
+  <hr>
+
+  <!-- 画像グリッド（サムネ表示＋削除ボタン） -->
+  <div class="grid">
+    {% for f in files %}
+      {% set thumb_path = '_thumbs/' + f %}
+      <div class="item">
+        <a href="{{ url_for('image_file', filename=f) }}" target="_blank">
+          <img src="{{ url_for('image_file', filename=thumb_path) }}"
+               alt="{{ f }}"
+               loading="lazy">
+        </a>
+        <div>{{ f }}</div>
+
+        <!-- 削除ボタン -->
+        <form action="{{ url_for('delete_image') }}" method="post"
+              onsubmit="return confirm('この画像を削除しますか？');">
+          <input type="hidden" name="filename" value="{{ f }}">
+          <button type="submit">削除</button>
+        </form>
+      </div>
+    {% endfor %}
+  </div>
+
+  <hr>
+
+  <!-- スライドモード（全画面スライドショー） -->
+  <h2>スライドモード</h2>
+  <p>
+    「全画面スライド開始」を押すと、現在表示中フォルダ内の画像を全画面で順番に自動表示します。ESCキーで終了します。
+  </p>
+
+  <div class="forms-row">
+    <button id="startFullscreenSlideBtn">全画面スライド開始</button>
+    <button id="stopSlideBtn">停止</button>
+  </div>
+
+  <!-- 通常表示用のプレビュー枠（全画面時もこのimgが使われる） -->
+  <div id="slideshow-container">
+    <img id="slideshow-image" src="" alt="スライド画像">
+  </div>
+
+  <script>
+    (function() {
+      const startFsBtn = document.getElementById('startFullscreenSlideBtn');
+      const stopBtn    = document.getElementById('stopSlideBtn');
+      const imgEl      = document.getElementById('slideshow-image');
+
+      const currentDir = "{{ current_dir }}";  // Jinja から現在のフォルダ名
+
+      let images = [];
+      let currentIndex = 0;
+      let timerId = null;
+      const intervalMs = 5000;  // 5秒ごとに切り替え
+
+      async function loadImages() {
+        const params = new URLSearchParams();
+        if (currentDir) {
+          params.set('dir', currentDir);
+        }
+        const res = await fetch('/api/images?' + params.toString());
+        if (!res.ok) {
+          alert('画像一覧の取得に失敗しました');
+          return false;
+        }
+        images = await res.json();
+        if (images.length === 0) {
+          alert('このフォルダには画像がありません');
+          imgEl.src = '';
+          return false;
+        }
+        currentIndex = 0;
+        imgEl.src = "/images/file/" + encodeURIComponent(images[currentIndex]);
+        return true;
+      }
+
+      function showNextImage() {
+        if (images.length === 0) return;
+        currentIndex = (currentIndex + 1) % images.length;  // 末尾→先頭ループ
+        imgEl.src = "/images/file/" + encodeURIComponent(images[currentIndex]);
+      }
+
+      function startTimer() {
+        if (timerId) return;
+        timerId = setInterval(showNextImage, intervalMs);
+      }
+
+      function stopTimer() {
+        if (!timerId) return;
+        clearInterval(timerId);
+        timerId = null;
+      }
+
+      async function startFullscreenSlideshow() {
+        // 画像一覧がまだなら読み込み
+        if (images.length === 0) {
+          const ok = await loadImages();
+          if (!ok) return;
+        }
+
+        imgEl.src = "/images/file/" + encodeURIComponent(images[currentIndex]);
+
+        // ページ全体を全画面表示
+        const el = document.documentElement;
+        try {
+          if (el.requestFullscreen) {
+            await el.requestFullscreen();
+          } else if (el.webkitRequestFullscreen) {
+            await el.webkitRequestFullscreen();
+          } else if (el.msRequestFullscreen) {
+            await el.msRequestFullscreen();
+          }
+        } catch (e) {
+          console.error('fullscreen error', e);
+        }
+
+        startTimer();
+      }
+
+      function exitFullscreen() {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          document.msExitFullscreen();
+        }
+      }
+
+      // 全画面が解除されたらスライドも停止
+      document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) {
+          stopTimer();
+        }
+      });
+
+      // ESCキーでも停止（ブラウザが全画面解除するのでタイマーだけ止める）
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          stopTimer();
+        }
+      });
+
+      startFsBtn.addEventListener('click', startFullscreenSlideshow);
+      stopBtn.addEventListener('click', () => {
+        stopTimer();
+        exitFullscreen();
+      });
+    })();
+  </script>
+</body>
+</html>

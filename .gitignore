@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.pyc
+
+# SQLite DB（本番だけにするならコミットしない）
+reservations.db
+
+# OS
+.DS_Store
+Thumbs.db
